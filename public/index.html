@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snyk Demo App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .section { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 5px; }
+        input[type="text"] { width: 300px; padding: 5px; }
+        button { padding: 5px 15px; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Snyk Vulnerable Application Demo</h1>
+
+    <div class="section">
+        <h3>1. Command Injection Test</h3>
+        <p>Try injecting a command, e.g., <code>8.8.8.8; ls -la</code></p>
+        <input type="text" id="target" value="8.8.8.8">
+        <button onclick="testPing()">Run Ping</button>
+        <pre id="pingResult"></pre>
+    </div>
+
+    <div class="section">
+        <h3>2. Path Traversal Test</h3>
+        <p>Try reading sensitive files, e.g., <code>../../../../etc/passwd</code></p>
+        <input type="text" id="file" value="package.json">
+        <button onclick="testRead()">Read File</button>
+        <pre id="readResult"></pre>
+    </div>
+
+    <script>
+        async function testPing() {
+            const target = document.getElementById('target').value;
+            const res = await fetch(`/api/ping?target=${encodeURIComponent(target)}`);
+            const text = await res.text();
+            document.getElementById('pingResult').textContent = text;
+        }
+
+        async function testRead() {
+            const file = document.getElementById('file').value;
+            const res = await fetch(`/api/read?file=${encodeURIComponent(file)}`);
+            const text = await res.text();
+            document.getElementById('readResult').textContent = text;
+        }
+    </script>
+</body>
+</html>
