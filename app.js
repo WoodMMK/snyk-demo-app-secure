@@ -1,20 +1,23 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
-const marked = require('marked');
+const path = require('path');
+const { marked } = require('marked');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
 
 const app = express();
 const port = 3000;
 
-// Serve static files from 'public' directory
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
+
 app.use(express.static('public'));
 
-// Vulnerability 1: Command Injection
-// Snyk will flag the use of 'exec' with unsanitized user input
 app.get('/api/ping', (req, res) => {
     const target = req.query.target || '8.8.8.8';
     
-    exec('ping -c 1 ' + target, (error, stdout, stderr) => {
+    execFile('ping', ['-c', '1', target], (error, stdout, stderr) => {
         if (error) {
             return res.status(500).send(error.message);
         }
@@ -22,12 +25,17 @@ app.get('/api/ping', (req, res) => {
     });
 });
 
-// Vulnerability 2: Directory / Path Traversal
-// Snyk will flag the direct use of user input in 'fs.readFile'
 app.get('/api/read', (req, res) => {
     const filename = req.query.file;
     
-    fs.readFile('./' + filename, 'utf8', (err, data) => {
+    if (!filename) {
+        return res.status(400).send('Filename is required');
+    }
+
+    const safeName = path.basename(filename);
+    const filePath = path.join(__dirname, safeName);
+    
+    fs.readFile(filePath, 'utf8', (err, data) => {
         if (err) {
             return res.status(404).send('File not found');
         }
@@ -35,14 +43,15 @@ app.get('/api/read', (req, res) => {
     });
 });
 
-// Vulnerability 3: XSS via vulnerable dependency
-// Snyk will flag the 'marked' package in package.json
 app.get('/api/render', (req, res) => {
     const markdownStr = req.query.text || '# Hello Snyk';
-    const html = marked(markdownStr);
-    res.send(html);
+    const rawHtml = marked.parse(markdownStr);
+    
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
+    
+    res.send(cleanHtml);
 });
 
 app.listen(port, () => {
-    console.log(`Vulnerable app listening at http://localhost:${port}`);
+    console.log(`Secure app listening at http://localhost:${port}`);
 });
